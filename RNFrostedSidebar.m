@@ -99,7 +99,7 @@
             vImageBoxConvolve_ARGB8888(&effectInBuffer, &effectOutBuffer, NULL, 0, 0, (uint32_t)radius, (uint32_t)radius, 0, kvImageEdgeExtend);
             vImageBoxConvolve_ARGB8888(&effectOutBuffer, &effectInBuffer, NULL, 0, 0, (uint32_t)radius, (uint32_t)radius, 0, kvImageEdgeExtend);
             vImageBoxConvolve_ARGB8888(&effectInBuffer, &effectOutBuffer, NULL, 0, 0, (uint32_t)radius, (uint32_t)radius, 0, kvImageEdgeExtend);
-
+            
         }
         BOOL effectImageBuffersAreSwapped = NO;
         if (hasSaturationChange) {
@@ -176,7 +176,6 @@
 @property (nonatomic, strong) UIImageView *imageView;
 @property (nonatomic, assign) NSInteger itemIndex;
 @property (nonatomic, strong) UIColor *originalBackgroundColor;
-
 @end
 
 @implementation RNCalloutItemView
@@ -244,6 +243,7 @@
 @property (nonatomic, strong) NSArray *images;
 @property (nonatomic, strong) NSArray *borderColors;
 @property (nonatomic, strong) NSMutableArray *itemViews;
+@property (nonatomic, strong) NSMutableArray *titleViews;
 @property (nonatomic, strong) NSMutableIndexSet *selectedIndices;
 
 @end
@@ -256,7 +256,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     return rn_frostedMenu;
 }
 
-- (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors {
+- (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors titles:(NSArray<NSString *> *)titles{
     if (self = [super init]) {
         _isSingleSelect = NO;
         _contentView = [[UIScrollView alloc] init];
@@ -271,6 +271,7 @@ static RNFrostedSidebar *rn_frostedMenu;
         _animationDuration = 0.25f;
         _itemSize = CGSizeMake(_width/2, _width/2);
         _itemViews = [NSMutableArray array];
+        _titleViews = [NSMutableArray array];
         _tintColor = [UIColor colorWithWhite:0.2 alpha:0.73];
         _borderWidth = 2;
         _itemBackgroundColor = [UIColor colorWithRed:1 green:1 blue:1 alpha:0.25];
@@ -288,8 +289,18 @@ static RNFrostedSidebar *rn_frostedMenu;
             view.itemIndex = idx;
             view.clipsToBounds = YES;
             view.imageView.image = image;
-            [_contentView addSubview:view];
+            if (titles!=nil && idx < titles.count) {
+                UILabel *_lblTitle = [[UILabel alloc] init];
+                _lblTitle.text = titles[idx];
+                _lblTitle.backgroundColor = [UIColor clearColor];
+                _lblTitle.textAlignment = NSTextAlignmentCenter;
+                [_lblTitle setFont:[UIFont fontWithName:@"HelveticaNeue" size:12.0]];
+                [_lblTitle setTextColor:[UIColor whiteColor]];
+                [_contentView addSubview:_lblTitle];
+                [_titleViews addObject:_lblTitle];
+            }
             
+            [_contentView addSubview:view];
             [_itemViews addObject:view];
             
             if (_borderColors && _selectedIndices && [_selectedIndices containsIndex:idx]) {
@@ -302,6 +313,10 @@ static RNFrostedSidebar *rn_frostedMenu;
         }];
     }
     return self;
+}
+
+- (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors {
+    return [self initWithImages:images selectedIndices:selectedIndices borderColors:colors titles:nil];
 }
 
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices {
@@ -329,7 +344,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     return YES;
 }
 
-- (NSUInteger)supportedInterfaceOrientations {
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
     return UIInterfaceOrientationMaskAll;
 }
 
@@ -417,7 +432,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     blurFrame.origin.x = contentFrame.origin.x;
     blurFrame.size.width = _width;
     
-    void (^animations)() = ^{
+    void (^animations)(void) = ^{
         self.contentView.frame = contentFrame;
         self.blurView.frame = blurFrame;
     };
@@ -481,18 +496,23 @@ static RNFrostedSidebar *rn_frostedMenu;
 }
 
 - (void)dismissAnimated:(BOOL)animated completion:(void (^)(BOOL finished))completion {
+    
+    if (_dismissEnabled==NO) {
+        return; // dismiss is not enabled, do not execute the rest.
+    }
+    
     void (^completionBlock)(BOOL) = ^(BOOL finished){
         [self rn_removeFromParentViewControllerCallingAppearanceMethods:YES];
-      
+        
         if ([self.delegate respondsToSelector:@selector(sidebar:didDismissFromScreenAnimated:)]) {
             [self.delegate sidebar:self didDismissFromScreenAnimated:YES];
         }
         
         rn_frostedMenu = nil;
         
-		if (completion) {
-			completion(finished);
-		}
+        if (completion) {
+            completion(finished);
+        }
     };
     
     if ([self.delegate respondsToSelector:@selector(sidebar:willDismissFromScreenAnimated:)]) {
@@ -625,6 +645,13 @@ static RNFrostedSidebar *rn_frostedMenu;
         CGRect frame = CGRectMake(leftPadding, topPadding*idx + self.itemSize.height*idx + topPadding, self.itemSize.width, self.itemSize.height);
         view.frame = frame;
         view.layer.cornerRadius = frame.size.width/2.f;
+    }];
+    
+    CGFloat labelPadding = (self.width - self.itemSize.width)/4;
+    CGFloat labelWidth = self.width - (labelPadding*2);
+    [self.titleViews enumerateObjectsUsingBlock:^(UILabel *view, NSUInteger idx, BOOL *stop) {
+        CGRect frame = CGRectMake(labelPadding, topPadding*idx + self.itemSize.height*idx + topPadding + self.itemSize.height, labelWidth, 20);
+        view.frame = frame;
     }];
     
     NSInteger items = [self.itemViews count];

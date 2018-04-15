@@ -50,10 +50,10 @@
                         [UIColor colorWithRed:119/255.f green:152/255.f blue:255/255.f alpha:1],
                         ];
     
-    RNFrostedSidebar *callout = [[RNFrostedSidebar alloc] initWithImages:images selectedIndices:self.optionIndices borderColors:colors];
-//    RNFrostedSidebar *callout = [[RNFrostedSidebar alloc] initWithImages:images];
+    NSArray * titles = @[@"Aplikasyon",@"asdjsadsa",@"aaaa",@"bbbbb",@"Yakınımda"];
+    RNFrostedSidebar *callout = [[RNFrostedSidebar alloc] initWithImages:images selectedIndices:self.optionIndices borderColors:colors titles:titles];
     callout.delegate = self;
-//    callout.showFromRight = YES;
+    callout.isSingleSelect = YES;
     [callout show];
 }
 

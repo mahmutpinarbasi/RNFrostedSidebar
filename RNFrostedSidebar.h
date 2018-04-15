@@ -63,9 +63,13 @@
 // Default NO
 @property (nonatomic, assign) BOOL isSingleSelect;
 
+/// enables-disabled the tap gesture on taps. If set to YES, menu can be dismissed. Default value is NO
+@property (nonatomic, assign) BOOL dismissEnabled;
+
 // An optional delegate to respond to interaction events
 @property (nonatomic, weak) id <RNFrostedSidebarDelegate> delegate;
 
+- (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors titles:(NSArray<NSString *> *)titles;
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors;
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices;
 - (instancetype)initWithImages:(NSArray *)images;
