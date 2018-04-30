@@ -175,7 +175,8 @@
 
 @property (nonatomic, strong) UIImageView *imageView;
 @property (nonatomic, assign) NSInteger itemIndex;
-@property (nonatomic, strong) UIColor *originalBackgroundColor;
+@property (nonatomic, strong) UILabel * titleLabel;
+@property (nonatomic, strong) UIView * seperator;
 @end
 
 @implementation RNCalloutItemView
@@ -185,50 +186,31 @@
         _imageView = [[UIImageView alloc] init];
         _imageView.backgroundColor = [UIColor clearColor];
         _imageView.contentMode = UIViewContentModeScaleAspectFit;
+        _imageView.clipsToBounds = YES;
+        _imageView.layer.masksToBounds = YES;
+        
+        _titleLabel = [[UILabel alloc] init];
+        _titleLabel.backgroundColor = [UIColor clearColor];
+        _titleLabel.textAlignment = NSTextAlignmentCenter;
+        [_titleLabel setFont:[UIFont fontWithName:@"HelveticaNeue" size:12.0]];
+        self.seperator = [[UIView alloc] init];
+        self.seperator.backgroundColor = [[UIColor lightGrayColor] colorWithAlphaComponent:0.5];
+        self.seperator.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
+
         [self addSubview:_imageView];
+        [self addSubview:_titleLabel];
+        [self addSubview:_seperator];
     }
     return self;
 }
 
 - (void)layoutSubviews {
     [super layoutSubviews];
+    self.imageView.frame = CGRectMake(0, 0, CGRectGetWidth(self.bounds), CGRectGetHeight(self.bounds)-21);
+    self.imageView.layer.cornerRadius = self.imageView.frame.size.width/2.f;
+    self.titleLabel.frame = CGRectMake(0, CGRectGetMaxY(self.imageView.bounds), CGRectGetWidth(self.bounds), 21.0);
+    self.seperator.frame = CGRectMake(4, CGRectGetHeight(self.bounds)-1, CGRectGetWidth(self.bounds)-8, 1.0);
     
-    CGFloat inset = self.bounds.size.height/2;
-    self.imageView.frame = CGRectMake(0, 0, inset, inset);
-    self.imageView.center = CGPointMake(inset, inset);
-}
-
-- (void)setOriginalBackgroundColor:(UIColor *)originalBackgroundColor {
-    _originalBackgroundColor = originalBackgroundColor;
-    self.backgroundColor = originalBackgroundColor;
-}
-
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
-    [super touchesBegan:touches withEvent:event];
-    
-    CGFloat r, g, b, a;
-    CGFloat darkenFactor = 0.3f;
-    UIColor *darkerColor;
-    if ([self.originalBackgroundColor getRed:&r green:&g blue:&b alpha:&a]) {
-        darkerColor = [UIColor colorWithRed:MAX(r - darkenFactor, 0.0) green:MAX(g - darkenFactor, 0.0) blue:MAX(b - darkenFactor, 0.0) alpha:a];
-    }
-    else if ([self.originalBackgroundColor getWhite:&r alpha:&a]) {
-        darkerColor = [UIColor colorWithWhite:MAX(r - darkenFactor, 0.0) alpha:a];
-    }
-    else {
-        @throw @"Item color should be RGBA or White/Alpha in order to darken the button color.";
-    }
-    self.backgroundColor = darkerColor;
-}
-
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
-    [super touchesEnded:touches withEvent:event];
-    self.backgroundColor = self.originalBackgroundColor;
-}
-
-- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
-    [super touchesCancelled:touches withEvent:event];
-    self.backgroundColor = self.originalBackgroundColor;
 }
 
 @end
@@ -238,12 +220,11 @@
 @interface RNFrostedSidebar ()
 
 @property (nonatomic, strong) UIScrollView *contentView;
-@property (nonatomic, strong) UIImageView *blurView;
 @property (nonatomic, strong) UITapGestureRecognizer *tapGesture;
 @property (nonatomic, strong) NSArray *images;
+@property (nonatomic, strong) NSArray *selectedImages;
 @property (nonatomic, strong) NSArray *borderColors;
 @property (nonatomic, strong) NSMutableArray *itemViews;
-@property (nonatomic, strong) NSMutableArray *titleViews;
 @property (nonatomic, strong) NSMutableIndexSet *selectedIndices;
 
 @end
@@ -256,7 +237,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     return rn_frostedMenu;
 }
 
-- (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors titles:(NSArray<NSString *> *)titles{
+- (instancetype)initWithImages:(NSArray *)images selectedImages:(NSArray *)selectedImages selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors titles:(NSArray<NSString *> *)titles{
     if (self = [super init]) {
         _isSingleSelect = NO;
         _contentView = [[UIScrollView alloc] init];
@@ -266,15 +247,15 @@ static RNFrostedSidebar *rn_frostedMenu;
         _contentView.clipsToBounds = NO;
         _contentView.showsHorizontalScrollIndicator = NO;
         _contentView.showsVerticalScrollIndicator = NO;
-        
+        _contentView.backgroundColor = [UIColor whiteColor];
         _width = 150;
         _animationDuration = 0.25f;
         _itemSize = CGSizeMake(_width/2, _width/2);
         _itemViews = [NSMutableArray array];
-        _titleViews = [NSMutableArray array];
         _tintColor = [UIColor colorWithWhite:0.2 alpha:0.73];
         _borderWidth = 2;
         _itemBackgroundColor = [UIColor colorWithRed:1 green:1 blue:1 alpha:0.25];
+        _titleTextColor = [UIColor blackColor];
         
         if (colors) {
             NSAssert([colors count] == [images count], @"Border color count must match images count. If you want a blank border, use [UIColor clearColor].");
@@ -283,6 +264,9 @@ static RNFrostedSidebar *rn_frostedMenu;
         _selectedIndices = [selectedIndices mutableCopy] ?: [NSMutableIndexSet indexSet];
         _borderColors = colors;
         _images = images;
+        _selectedImages = selectedImages;
+        
+        __weak RNFrostedSidebar * weakSelf = (RNFrostedSidebar *)self;
         
         [_images enumerateObjectsUsingBlock:^(UIImage *image, NSUInteger idx, BOOL *stop) {
             RNCalloutItemView *view = [[RNCalloutItemView alloc] init];
@@ -290,33 +274,20 @@ static RNFrostedSidebar *rn_frostedMenu;
             view.clipsToBounds = YES;
             view.imageView.image = image;
             if (titles!=nil && idx < titles.count) {
-                UILabel *_lblTitle = [[UILabel alloc] init];
-                _lblTitle.text = titles[idx];
-                _lblTitle.backgroundColor = [UIColor clearColor];
-                _lblTitle.textAlignment = NSTextAlignmentCenter;
-                [_lblTitle setFont:[UIFont fontWithName:@"HelveticaNeue" size:12.0]];
-                [_lblTitle setTextColor:[UIColor whiteColor]];
-                [_contentView addSubview:_lblTitle];
-                [_titleViews addObject:_lblTitle];
+                view.titleLabel.text = titles[idx];
+                view.titleLabel.textColor = weakSelf.titleTextColor;
             }
             
-            [_contentView addSubview:view];
-            [_itemViews addObject:view];
-            
-            if (_borderColors && _selectedIndices && [_selectedIndices containsIndex:idx]) {
-                UIColor *color = _borderColors[idx];
-                view.layer.borderColor = color.CGColor;
-            }
-            else {
-                view.layer.borderColor = [UIColor clearColor].CGColor;
-            }
+            [weakSelf.contentView addSubview:view];
+            [weakSelf.itemViews addObject:view];
+            view.layer.borderColor = [UIColor clearColor].CGColor; // by default there is no border.
         }];
     }
     return self;
 }
 
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors {
-    return [self initWithImages:images selectedIndices:selectedIndices borderColors:colors titles:nil];
+    return [self initWithImages:images selectedImages:nil selectedIndices:selectedIndices borderColors:colors titles:nil];
 }
 
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices {
@@ -334,7 +305,7 @@ static RNFrostedSidebar *rn_frostedMenu;
 
 - (void)loadView {
     [super loadView];
-    self.view.backgroundColor = [UIColor clearColor];
+    self.view.backgroundColor = [UIColor whiteColor];
     [self.view addSubview:self.contentView];
     self.tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
     [self.view addGestureRecognizer:self.tapGesture];
@@ -353,11 +324,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     
     if ([self isViewLoaded] && self.view.window != nil) {
         self.view.alpha = 0;
-        UIImage *blurImage = [self.parentViewController.view rn_screenshot];
-        blurImage = [blurImage applyBlurWithRadius:5 tintColor:self.tintColor saturationDeltaFactor:1.8 maskImage:nil];
-        self.blurView.image = blurImage;
         self.view.alpha = 1;
-        
         [self layoutSubviews];
     }
 }
@@ -405,8 +372,6 @@ static RNFrostedSidebar *rn_frostedMenu;
     
     rn_frostedMenu = self;
     
-    UIImage *blurImage = [controller.view rn_screenshot];
-    blurImage = [blurImage applyBlurWithRadius:5 tintColor:self.tintColor saturationDeltaFactor:1.8 maskImage:nil];
     
     [self rn_addToParentViewController:controller callingAppearanceMethods:YES];
     self.view.frame = controller.view.bounds;
@@ -420,21 +385,9 @@ static RNFrostedSidebar *rn_frostedMenu;
     
     [self layoutItems];
     
-    CGRect blurFrame = CGRectMake(_showFromRight ? self.view.bounds.size.width : 0, 0, 0, self.view.bounds.size.height);
-    
-    self.blurView = [[UIImageView alloc] initWithImage:blurImage];
-    self.blurView.frame = blurFrame;
-    self.blurView.contentMode = _showFromRight ? UIViewContentModeTopRight : UIViewContentModeTopLeft;
-    self.blurView.clipsToBounds = YES;
-    [self.view insertSubview:self.blurView belowSubview:self.contentView];
-    
     contentFrame.origin.x = _showFromRight ? parentWidth - _width : 0;
-    blurFrame.origin.x = contentFrame.origin.x;
-    blurFrame.size.width = _width;
-    
     void (^animations)(void) = ^{
         self.contentView.frame = contentFrame;
-        self.blurView.frame = blurFrame;
     };
     void (^completion)(BOOL) = ^(BOOL finished) {
         if (finished && [self.delegate respondsToSelector:@selector(sidebar:didShowOnScreenAnimated:)]) {
@@ -461,7 +414,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     [self.itemViews enumerateObjectsUsingBlock:^(RNCalloutItemView *view, NSUInteger idx, BOOL *stop) {
         view.layer.transform = CATransform3DMakeScale(0.3, 0.3, 1);
         view.alpha = 0;
-        view.originalBackgroundColor = self.itemBackgroundColor;
+        view.backgroundColor = self.itemBackgroundColor;
         view.layer.borderWidth = self.borderWidth;
         
         if (sdkHasSpringAnimation) {
@@ -471,6 +424,11 @@ static RNFrostedSidebar *rn_frostedMenu;
             [self animateFauxBounceWithView:view idx:idx initDelay:initDelay];
         }
     }];
+    
+    
+    if (self.selectedIndices.count > 0) {
+        [self didTapItemAtIndex:0];
+    }
 }
 
 - (void)showAnimated:(BOOL)animated {
@@ -523,17 +481,13 @@ static RNFrostedSidebar *rn_frostedMenu;
         CGFloat parentWidth = self.view.bounds.size.width;
         CGRect contentFrame = self.contentView.frame;
         contentFrame.origin.x = self.showFromRight ? parentWidth : -_width;
-        
-        CGRect blurFrame = self.blurView.frame;
-        blurFrame.origin.x = self.showFromRight ? parentWidth : 0;
-        blurFrame.size.width = 0;
+
         
         [UIView animateWithDuration:self.animationDuration
                               delay:0
                             options:UIViewAnimationOptionBeginFromCurrentState
                          animations:^{
                              self.contentView.frame = contentFrame;
-                             self.blurView.frame = blurFrame;
                          }
                          completion:completionBlock];
     }
@@ -564,24 +518,16 @@ static RNFrostedSidebar *rn_frostedMenu;
     
     if (self.borderColors) {
         UIColor *stroke = self.borderColors[index];
-        UIView *view = self.itemViews[index];
-        
+        RNCalloutItemView *calloutItemView = self.itemViews[index];
+        UIImageView * view = calloutItemView.imageView;
         if (didEnable) {
             if (_isSingleSelect){
                 [self.selectedIndices removeAllIndexes];
-                [self.itemViews enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-                    UIView *aView = (UIView *)obj;
-                    [[aView layer] setBorderColor:[[UIColor clearColor] CGColor]];
+                [self.itemViews enumerateObjectsUsingBlock:^(RNCalloutItemView * obj, NSUInteger idx, BOOL *stop) {
+                    [[obj.imageView layer] setBorderColor:[[UIColor clearColor] CGColor]];
+                    obj.imageView.image = self.images[idx];
                 }];
             }
-            view.layer.borderColor = stroke.CGColor;
-            
-            CABasicAnimation *borderAnimation = [CABasicAnimation animationWithKeyPath:@"borderColor"];
-            borderAnimation.fromValue = (id)[UIColor clearColor].CGColor;
-            borderAnimation.toValue = (id)stroke.CGColor;
-            borderAnimation.duration = 0.5f;
-            [view.layer addAnimation:borderAnimation forKey:nil];
-            
             [self.selectedIndices addIndex:index];
         }
         else {
@@ -590,12 +536,13 @@ static RNFrostedSidebar *rn_frostedMenu;
                 [self.selectedIndices removeIndex:index];
             }
         }
-        
+        view.image = self.selectedImages[index];
         CGRect pathFrame = CGRectMake(-CGRectGetMidX(view.bounds), -CGRectGetMidY(view.bounds), view.bounds.size.width, view.bounds.size.height);
         UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:pathFrame cornerRadius:view.layer.cornerRadius];
         
         // accounts for left/right offset and contentOffset of scroll view
-        CGPoint shapePosition = [self.view convertPoint:view.center fromView:self.contentView];
+        CGPoint p1 = [self.contentView convertPoint:view.center fromView:calloutItemView];
+        CGPoint shapePosition = [self.view convertPoint:p1 fromView:self.contentView];
         
         CAShapeLayer *circleShape = [CAShapeLayer layer];
         circleShape.path = path.CGPath;
@@ -620,6 +567,7 @@ static RNFrostedSidebar *rn_frostedMenu;
         animation.duration = 0.5f;
         animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
         [circleShape addAnimation:animation forKey:nil];
+        
     }
     
     if ([self.delegate respondsToSelector:@selector(sidebar:didTapItemAtIndex:)]) {
@@ -633,8 +581,6 @@ static RNFrostedSidebar *rn_frostedMenu;
 - (void)layoutSubviews {
     CGFloat x = self.showFromRight ? self.parentViewController.view.bounds.size.width - _width : 0;
     self.contentView.frame = CGRectMake(x, 0, _width, self.parentViewController.view.bounds.size.height);
-    self.blurView.frame = self.contentView.frame;
-    
     [self layoutItems];
 }
 
@@ -644,14 +590,7 @@ static RNFrostedSidebar *rn_frostedMenu;
     [self.itemViews enumerateObjectsUsingBlock:^(RNCalloutItemView *view, NSUInteger idx, BOOL *stop) {
         CGRect frame = CGRectMake(leftPadding, topPadding*idx + self.itemSize.height*idx + topPadding, self.itemSize.width, self.itemSize.height);
         view.frame = frame;
-        view.layer.cornerRadius = frame.size.width/2.f;
-    }];
-    
-    CGFloat labelPadding = (self.width - self.itemSize.width)/4;
-    CGFloat labelWidth = self.width - (labelPadding*2);
-    [self.titleViews enumerateObjectsUsingBlock:^(UILabel *view, NSUInteger idx, BOOL *stop) {
-        CGRect frame = CGRectMake(labelPadding, topPadding*idx + self.itemSize.height*idx + topPadding + self.itemSize.height, labelWidth, 20);
-        view.frame = frame;
+        view.imageView.layer.cornerRadius = view.imageView.frame.size.width/2.f;
     }];
     
     NSInteger items = [self.itemViews count];

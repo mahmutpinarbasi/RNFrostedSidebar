@@ -55,6 +55,9 @@
 // Default white: 1, alpha 0.25
 @property (nonatomic, strong) UIColor *itemBackgroundColor;
 
+/// Text color of title. Default is `blackColor`
+@property (nonatomic, strong) UIColor * titleTextColor;
+
 // The width of the colored border for selected item views
 // Default 2
 @property (nonatomic, assign) NSUInteger borderWidth;
@@ -69,7 +72,7 @@
 // An optional delegate to respond to interaction events
 @property (nonatomic, weak) id <RNFrostedSidebarDelegate> delegate;
 
-- (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors titles:(NSArray<NSString *> *)titles;
+- (instancetype)initWithImages:(NSArray *)images selectedImages:(NSArray *)selectedImages selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors titles:(NSArray<NSString *> *)titles;
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices borderColors:(NSArray *)colors;
 - (instancetype)initWithImages:(NSArray *)images selectedIndices:(NSIndexSet *)selectedIndices;
 - (instancetype)initWithImages:(NSArray *)images;
