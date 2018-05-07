@@ -518,68 +518,7 @@ static RNFrostedSidebar *rn_frostedMenu;
 #pragma mark - Private
 
 - (void)didTapItemAtIndex:(NSUInteger)index {
-    BOOL didEnable = ! [self.selectedIndices containsIndex:index];
-    
-    if (self.borderColors) {
-        UIColor *stroke = self.borderColors[index];
-        RNCalloutItemView *calloutItemView = self.itemViews[index];
-        UIImageView * view = calloutItemView.imageView;
-        if (didEnable) {
-            if (_isSingleSelect){
-                [self.selectedIndices removeAllIndexes];
-                [self.itemViews enumerateObjectsUsingBlock:^(RNCalloutItemView * obj, NSUInteger idx, BOOL *stop) {
-                    [[obj.imageView layer] setBorderColor:[[UIColor clearColor] CGColor]];
-                    obj.imageView.image = self.images[idx];
-                }];
-            }
-            [self.selectedIndices addIndex:index];
-        }
-        else {
-            if (!_isSingleSelect){
-                view.layer.borderColor = [UIColor clearColor].CGColor;
-                [self.selectedIndices removeIndex:index];
-            }
-        }
-        view.image = self.selectedImages[index];
-        CGRect pathFrame = CGRectMake(-CGRectGetMidX(view.bounds), -CGRectGetMidY(view.bounds), view.bounds.size.width, view.bounds.size.height);
-        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:pathFrame cornerRadius:view.layer.cornerRadius];
-        
-        // accounts for left/right offset and contentOffset of scroll view
-        CGPoint p1 = [self.contentView convertPoint:view.center fromView:calloutItemView];
-        CGPoint shapePosition = [self.view convertPoint:p1 fromView:self.contentView];
-        
-        CAShapeLayer *circleShape = [CAShapeLayer layer];
-        circleShape.path = path.CGPath;
-        circleShape.position = shapePosition;
-        circleShape.fillColor = [UIColor clearColor].CGColor;
-        circleShape.opacity = 0;
-        circleShape.strokeColor = stroke.CGColor;
-        circleShape.lineWidth = self.borderWidth;
-        
-        [self.view.layer addSublayer:circleShape];
-        
-        CABasicAnimation *scaleAnimation = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-        scaleAnimation.fromValue = [NSValue valueWithCATransform3D:CATransform3DIdentity];
-        scaleAnimation.toValue = [NSValue valueWithCATransform3D:CATransform3DMakeScale(2.5, 2.5, 1)];
-        
-        CABasicAnimation *alphaAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
-        alphaAnimation.fromValue = @1;
-        alphaAnimation.toValue = @0;
-        
-        CAAnimationGroup *animation = [CAAnimationGroup animation];
-        animation.animations = @[scaleAnimation, alphaAnimation];
-        animation.duration = 0.5f;
-        animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
-        [circleShape addAnimation:animation forKey:nil];
-        
-    }
-    
-    if ([self.delegate respondsToSelector:@selector(sidebar:didTapItemAtIndex:)]) {
-        [self.delegate sidebar:self didTapItemAtIndex:index];
-    }
-    if ([self.delegate respondsToSelector:@selector(sidebar:didEnable:itemAtIndex:)]) {
-        [self.delegate sidebar:self didEnable:didEnable itemAtIndex:index];
-    }
+    [self _selectItemAtIndex:index animated:YES];
 }
 
 - (void)layoutSubviews {
@@ -637,4 +576,78 @@ static RNFrostedSidebar *rn_frostedMenu;
     if (callAppearanceMethods) [self endAppearanceTransition];
 }
 
+#pragma mark - Public
+- (void)selectItemAtIndex:(NSUInteger)index{
+    [self _selectItemAtIndex:index animated:NO];
+}
+
+- (void)_selectItemAtIndex:(NSUInteger)index animated:(BOOL)animated{
+   
+    BOOL didEnable = ! [self.selectedIndices containsIndex:index];
+    
+    if (self.borderColors) {
+        UIColor *stroke = self.borderColors[index];
+        RNCalloutItemView *calloutItemView = self.itemViews[index];
+        UIImageView * view = calloutItemView.imageView;
+        if (didEnable) {
+            if (_isSingleSelect){
+                [self.selectedIndices removeAllIndexes];
+                [self.itemViews enumerateObjectsUsingBlock:^(RNCalloutItemView * obj, NSUInteger idx, BOOL *stop) {
+                    [[obj.imageView layer] setBorderColor:[[UIColor clearColor] CGColor]];
+                    obj.imageView.image = self.images[idx];
+                }];
+            }
+            [self.selectedIndices addIndex:index];
+        }
+        else {
+            if (!_isSingleSelect){
+                view.layer.borderColor = [UIColor clearColor].CGColor;
+                [self.selectedIndices removeIndex:index];
+            }
+        }
+        view.image = self.selectedImages[index];
+        if (animated) {
+            CGRect pathFrame = CGRectMake(-CGRectGetMidX(view.bounds), -CGRectGetMidY(view.bounds), view.bounds.size.width, view.bounds.size.height);
+            UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:pathFrame cornerRadius:view.layer.cornerRadius];
+            
+            // accounts for left/right offset and contentOffset of scroll view
+            CGPoint p1 = [self.contentView convertPoint:view.center fromView:calloutItemView];
+            CGPoint shapePosition = [self.view convertPoint:p1 fromView:self.contentView];
+            
+            CAShapeLayer *circleShape = [CAShapeLayer layer];
+            circleShape.path = path.CGPath;
+            circleShape.position = shapePosition;
+            circleShape.fillColor = [UIColor clearColor].CGColor;
+            circleShape.opacity = 0;
+            circleShape.strokeColor = stroke.CGColor;
+            circleShape.lineWidth = self.borderWidth;
+            
+            [self.view.layer addSublayer:circleShape];
+            
+            CABasicAnimation *scaleAnimation = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+            scaleAnimation.fromValue = [NSValue valueWithCATransform3D:CATransform3DIdentity];
+            scaleAnimation.toValue = [NSValue valueWithCATransform3D:CATransform3DMakeScale(2.5, 2.5, 1)];
+            
+            CABasicAnimation *alphaAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
+            alphaAnimation.fromValue = @1;
+            alphaAnimation.toValue = @0;
+            
+            CAAnimationGroup *animation = [CAAnimationGroup animation];
+            animation.animations = @[scaleAnimation, alphaAnimation];
+            animation.duration = 0.5f;
+            animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+            [circleShape addAnimation:animation forKey:nil];
+        }
+    }
+    
+    if (animated) {
+        if ([self.delegate respondsToSelector:@selector(sidebar:didTapItemAtIndex:)]) {
+            [self.delegate sidebar:self didTapItemAtIndex:index];
+        }
+        if ([self.delegate respondsToSelector:@selector(sidebar:didEnable:itemAtIndex:)]) {
+            [self.delegate sidebar:self didEnable:didEnable itemAtIndex:index];
+        }
+
+    }
+}
 @end
