@@ -194,7 +194,7 @@
         _titleLabel.textAlignment = NSTextAlignmentCenter;
         [_titleLabel setFont:[UIFont fontWithName:@"HelveticaNeue" size:12.0]];
         self.seperator = [[UIView alloc] init];
-        self.seperator.backgroundColor = [[UIColor lightGrayColor] colorWithAlphaComponent:0.5];
+        self.seperator.backgroundColor = [[UIColor colorWithRed:237.0/255.0 green:237.0/255.0 blue:237.0/255.0 alpha:1.0] colorWithAlphaComponent:0.5];
         self.seperator.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
 
         [self addSubview:_imageView];
@@ -206,7 +206,7 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    self.imageView.frame = CGRectMake(0, 0, CGRectGetWidth(self.bounds), CGRectGetHeight(self.bounds)-21);
+    self.imageView.frame = CGRectMake(0, 0, CGRectGetWidth(self.bounds), CGRectGetWidth(self.bounds));
     self.imageView.layer.cornerRadius = self.imageView.frame.size.width/2.f;
     self.titleLabel.frame = CGRectMake(0, CGRectGetMaxY(self.imageView.bounds), CGRectGetWidth(self.bounds), 21.0);
     self.seperator.frame = CGRectMake(4, CGRectGetHeight(self.bounds)-1, CGRectGetWidth(self.bounds)-8, 1.0);
@@ -309,6 +309,10 @@ static RNFrostedSidebar *rn_frostedMenu;
     [self.view addSubview:self.contentView];
     self.tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
     [self.view addGestureRecognizer:self.tapGesture];
+    
+    self.contentView.layer.shadowColor = [UIColor darkGrayColor].CGColor;
+    self.contentView.layer.shadowOffset = CGSizeMake(0.0, 0.0);
+    self.contentView.layer.shadowOpacity = 0.5;
 }
 
 - (BOOL)shouldAutorotate {
@@ -591,6 +595,9 @@ static RNFrostedSidebar *rn_frostedMenu;
         CGRect frame = CGRectMake(leftPadding, topPadding*idx + self.itemSize.height*idx + topPadding, self.itemSize.width, self.itemSize.height);
         view.frame = frame;
         view.imageView.layer.cornerRadius = view.imageView.frame.size.width/2.f;
+        if (idx==self.itemViews.count-1) {
+            view.seperator.hidden = YES;
+        }
     }];
     
     NSInteger items = [self.itemViews count];
